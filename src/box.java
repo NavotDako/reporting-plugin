@@ -14,6 +14,7 @@ import java.util.Properties;
 
 import com.intellij.openapi.util.IconLoader;
 import org.apache.commons.io.FileUtils;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Created by navot.dako on 5/29/2017.
@@ -34,14 +35,15 @@ public class box extends AnAction {
         String name = "-1";
         String subject = "-1";
         boolean flag = false;
-
+        File dir=null;
         path = getInput(project, "Path", "Enter The Folder Path:", "Folder Path");
         if (!path.equals("-1")) {
             name = getInput(project, "Name", "Enter The QA Ninja Name:", "Ninja Name");
             if (!name.equals("-1")) {
                 subject = getInput(project, "Subject", "Enter The Subject:", "Subject");
                 if (!subject.equals("-1")) {
-                    flag = continueToSend(project, path, name, subject);
+                    dir = getAppDataDir();
+                    flag = continueToSend(project, path, name, subject,dir);
                 }
             }
         }
@@ -51,19 +53,24 @@ public class box extends AnAction {
                 start(project);
             }
         }
+        try {
+            FileUtils.forceDelete(dir);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    private boolean continueToSend(Project project, String path, String name, String subject) {
+    private boolean continueToSend(Project project, String path, String name, String subject, File dir) {
 
         ZipAndPutOnTheServer appZip = new ZipAndPutOnTheServer(path);
         String subjectString = subject.replace(" ", "_");
-        String recipientEmail = getRecipient(name);
+        String recipientEmail = getRecipient(dir,name);
         if (recipientEmail != null && !recipientEmail.equals("")) {
             Messages.showMessageDialog(project, "Subject - " + subjectString + "\nReport - " + path + "\nRecipientEmail - " + recipientEmail, "Information", Messages.getInformationIcon());
             appZip.generateFileList(new File(path));
             appZip.zipIt(subjectString, path);
             try {
-                SendEmail.Send(recipientEmail, "", subjectString, "http://192.168.2.72:8181/logs/" + subjectString + ".zip");
+                SendEmail.Send(recipientEmail, "", subjectString, "http://192.168.2.72:8181/logs/" + subjectString + ".zip",credsProp(dir));
                 Messages.showMessageDialog(project, "Done! Email Was Sent!\nThe Email is - " + recipientEmail + "\nThe Subject is - " + subjectString, "Information", Messages.getInformationIcon());
 
             } catch (MessagingException e) {
@@ -78,9 +85,34 @@ public class box extends AnAction {
         return true;
     }
 
-    private String getRecipient(String name) {
+    @NotNull
+    private File getAppDataDir() {
         File dir = new File(System.getenv("APPDATA")+"\\reporting");
         dir.mkdir();
+        return dir;
+    }
+
+    private Properties credsProp(File dir) {
+        File file = new File(dir.getAbsolutePath()+"\\creds.properties");
+        try {
+            FileUtils.copyURLToFile(new URL("http://192.168.2.72:8181/emails/creds.properties"), file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Properties properties = new Properties();
+        try {
+            FileInputStream fileInput = new FileInputStream(file);
+            properties.load(fileInput);
+            fileInput.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return properties;
+    }
+
+    private String getRecipient(File dir,String name) {
+
         File file = new File(dir.getAbsolutePath()+"\\emails.properties");
         try {
             FileUtils.copyURLToFile(new URL("http://192.168.2.72:8181/emails/emails.properties"), file);
@@ -96,11 +128,7 @@ public class box extends AnAction {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        try {
-            FileUtils.forceDelete(dir);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+
         return String.valueOf(properties.get(name.toLowerCase()));
     }
 

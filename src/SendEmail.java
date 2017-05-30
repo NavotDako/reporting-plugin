@@ -14,14 +14,17 @@ import java.util.Properties;
 
 public class SendEmail {
 
-    public static final String userName=  "navot@experitest.com";
-    public static final String password = "Seetest2015";
+    static String userName;
+    static String password;
 
     private SendEmail() {
     }
 
-    public static void Send(String recipientEmail, String ccEmail, String title, String message) throws AddressException, MessagingException {
+    public static void Send(String recipientEmail, String ccEmail, String title, String message,Properties credsProp) throws AddressException, MessagingException {
         System.out.println("Starting to send the email to - "+recipientEmail);
+        userName = String.valueOf(credsProp.get("user"));
+        password = String.valueOf(credsProp.get("pass"));
+
         if(recipientEmail==null || recipientEmail.equals("null")){
             System.out.println("NOT SENDING - NULL");
             return;

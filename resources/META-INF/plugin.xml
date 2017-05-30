@@ -2,16 +2,16 @@
   <id>com.your.company.unique.plugin.id</id>
   <name>Plugin display name here</name>
   <version>1.0</version>
-  <vendor email="support@yourcompany.com" url="http://www.yourcompany.com">YourCompany</vendor>
+  <vendor email="navot@experitest.com" url="http://www.navotdako.com">NVTD</vendor>
 
   <description><![CDATA[
-      Enter short description for your plugin here.<br>
-      <em>most HTML tags may be used</em>
+      We Do Not Need A Description.<br>
+      <em>We Do Not Need HTML As Well</em>
     ]]></description>
 
   <change-notes><![CDATA[
-      Add change notes here.<br>
-      <em>most HTML tags may be used</em>
+      We Have no notes here.<br>
+      <em>HTML!!</em>
     ]]>
   </change-notes>
 
@@ -31,7 +31,7 @@
   <actions>
     <group id="MyPlugin.Report" text="_Report" description="Reporter">
       <add-to-group group-id="MainMenu" anchor="last"  />
-      <action id="Myplugin.box" class="box" text="Send" description="A test menu item" />
+      <action id="MyPlugin.box" class="box" text="Send" description="Send it somewhere" />
       <!--<action id="Myplugin.Dialogs" class="Mypackage.MyShowDialog" text="Show _Dialog" description="A test menu item" />-->
     </group>  </actions>
 
