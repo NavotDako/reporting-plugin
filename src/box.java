@@ -1,11 +1,14 @@
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.SelectionModel;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.InputValidator;
 import com.intellij.openapi.ui.Messages;
 
 import javax.mail.MessagingException;
-import javax.swing.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -20,6 +23,7 @@ import org.jetbrains.annotations.NotNull;
  * Created by navot.dako on 5/29/2017.
  */
 public class box extends AnAction {
+    Properties properties;
     public box() {
 
         super("Send", "Item description", IconLoader.getIcon("/pack/download.jpg"));
@@ -27,30 +31,34 @@ public class box extends AnAction {
 
     public void actionPerformed(AnActionEvent event) {
         Project project = event.getData(PlatformDataKeys.PROJECT);
-        start(project);
+        Editor editor = event.getData(CommonDataKeys.EDITOR);
+        SelectionModel selectionModel = editor.getSelectionModel();
+        String markedText = selectionModel.getSelectedText();
+        start(project, markedText);
     }
 
-    private void start(Project project) {
+    private void start(Project project, String markedText) {
         String path = "-1";
         String name = "-1";
         String subject = "-1";
         boolean flag = false;
-        File dir=null;
-        path = getInput(project, "Path", "Enter The Folder Path:", "Folder Path");
+        File dir = null;
+        path = getInput(project, "Path", "Enter The Folder Path:", "Folder Path", markedText);
         if (!path.equals("-1")) {
-            name = getInput(project, "Name", "Enter The QA Ninja Name:", "Ninja Name");
+            dir = getAppDataDir();
+            properties = getEmailsProperties(dir);
+            name = getInput(project, "Name", "Enter The QA Ninja Name:", "Ninja Name", "");
             if (!name.equals("-1")) {
-                subject = getInput(project, "Subject", "Enter The Subject:", "Subject");
+                subject = getInput(project, "Subject", "Enter The Subject:", "Subject", "");
                 if (!subject.equals("-1")) {
-                    dir = getAppDataDir();
-                    flag = continueToSend(project, path, name, subject,dir);
+                    flag = continueToSend(project, path, name, subject, dir,getRecipient(properties, name));
                 }
             }
         }
         if (!flag) {
             int answer = Messages.showYesNoDialog(project, "Do You Want To Try Again?", "title", Messages.getQuestionIcon());
             if (answer == 0) {
-                start(project);
+                start(project, markedText);
             }
         }
         try {
@@ -60,17 +68,17 @@ public class box extends AnAction {
         }
     }
 
-    private boolean continueToSend(Project project, String path, String name, String subject, File dir) {
+    private boolean continueToSend(Project project, String path, String name, String subject, File dir,String recipientEmail) {
 
         ZipAndPutOnTheServer appZip = new ZipAndPutOnTheServer(path);
         String subjectString = subject.replace(" ", "_");
-        String recipientEmail = getRecipient(dir,name);
+
         if (recipientEmail != null && !recipientEmail.equals("")) {
             Messages.showMessageDialog(project, "Subject - " + subjectString + "\nReport - " + path + "\nRecipientEmail - " + recipientEmail, "Information", Messages.getInformationIcon());
             appZip.generateFileList(new File(path));
             appZip.zipIt(subjectString, path);
             try {
-                SendEmail.Send(recipientEmail, "", subjectString, "http://192.168.2.72:8181/logs/" + subjectString + ".zip",credsProp(dir));
+                SendEmail.Send(recipientEmail, "", subjectString, "http://192.168.2.72:8181/logs/" + subjectString + ".zip", credsProp(dir));
                 Messages.showMessageDialog(project, "Done! Email Was Sent!\nThe Email is - " + recipientEmail + "\nThe Subject is - " + subjectString, "Information", Messages.getInformationIcon());
 
             } catch (MessagingException e) {
@@ -87,13 +95,13 @@ public class box extends AnAction {
 
     @NotNull
     private File getAppDataDir() {
-        File dir = new File(System.getenv("APPDATA")+"\\reporting");
+        File dir = new File(System.getenv("APPDATA") + "\\reporting");
         dir.mkdir();
         return dir;
     }
 
     private Properties credsProp(File dir) {
-        File file = new File(dir.getAbsolutePath()+"\\creds.properties");
+        File file = new File(dir.getAbsolutePath() + "\\creds.properties");
         try {
             FileUtils.copyURLToFile(new URL("http://192.168.2.72:8181/emails/creds.properties"), file);
         } catch (IOException e) {
@@ -111,9 +119,14 @@ public class box extends AnAction {
         return properties;
     }
 
-    private String getRecipient(File dir,String name) {
+    private String getRecipient(Properties properties, String name) {
 
-        File file = new File(dir.getAbsolutePath()+"\\emails.properties");
+        return String.valueOf(properties.get(name.toLowerCase()));
+    }
+
+    @NotNull
+    private Properties getEmailsProperties(File dir) {
+        File file = new File(dir.getAbsolutePath() + "\\emails.properties");
         try {
             FileUtils.copyURLToFile(new URL("http://192.168.2.72:8181/emails/emails.properties"), file);
         } catch (IOException e) {
@@ -128,13 +141,68 @@ public class box extends AnAction {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        return String.valueOf(properties.get(name.toLowerCase()));
+        return properties;
     }
 
-    private String getInput(Project project, String topic, String message, String title) {
-        String value;
-        value = Messages.showInputDialog(project, message, title, Messages.getQuestionIcon());
+    private String getInput(Project project, String topic, String message, String title, String markedText) {
+        String value="";
+
+        switch (topic){
+            case "Path":{
+                value = Messages.showInputDialog(project, message, title, Messages.getQuestionIcon(), markedText, new InputValidator() {
+                    @Override
+                    public boolean checkInput(String path) {
+                        File file = new File(path);
+                        if (file.isDirectory())
+                            return true;
+                        else
+                            return false;
+                    }
+
+                    @Override
+                    public boolean canClose(String s) {
+                        return true;
+                    }
+                });
+                break;
+            }
+            case "Name":{
+                value = Messages.showInputDialog(project, message, title, Messages.getQuestionIcon(), "Enter A Ninja", new InputValidator() {
+                    @Override
+                    public boolean checkInput(String name) {
+                        String recipientEmail = getRecipient(properties, name);
+                        if (recipientEmail!=null && !recipientEmail.equals("null"))
+                            return true;
+                        else
+                            return false;
+                    }
+
+                    @Override
+                    public boolean canClose(String s) {
+                        return true;
+                    }
+                });
+                break;
+            }
+            case "Subject":{
+                value = Messages.showInputDialog(project, message, title, Messages.getQuestionIcon(), markedText, new InputValidator() {
+                    @Override
+                    public boolean checkInput(String subject) {
+                       if(subject.length()>2)
+                            return true;
+                        else
+                            return false;
+                    }
+
+                    @Override
+                    public boolean canClose(String s) {
+                        return true;
+                    }
+                });
+                break;
+            }
+        }
+
         if (!value.equals("")) {
             return value;
         } else {
